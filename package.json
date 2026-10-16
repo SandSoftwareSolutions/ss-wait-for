@@ -1,0 +1,44 @@
+{
+  "name": "@sandsoftwaresolutions/wait-for",
+  "version": "0.1.0",
+  "description": "Wait until a condition, port or URL is ready, with a time limit and an error that says what you were waiting for.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js"
+    }
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test",
+    "pack:check": "npm pack --dry-run"
+  },
+  "keywords": [
+    "wait",
+    "poll",
+    "port",
+    "healthcheck",
+    "testing"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SandSoftwareSolutions/ss-wait-for.git"
+  },
+  "bugs": {
+    "url": "https://github.com/SandSoftwareSolutions/ss-wait-for/issues"
+  },
+  "homepage": "https://github.com/SandSoftwareSolutions/ss-wait-for#readme",
+  "publishConfig": {
+    "access": "public"
+  }
+}
