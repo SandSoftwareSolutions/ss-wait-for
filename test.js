@@ -36,7 +36,10 @@ test("it can be cancelled", async () => {
 test("bad arguments", async () => {
   await assert.rejects(waitFor("x"), TypeError);
   await assert.rejects(waitFor(() => 1, { intervalMs: 0 }), RangeError);
-  assert.throws(() => waitForPort(0), RangeError);
+  // Changed: waitForPort used to throw synchronously for a bad port; it now rejects, like every other error of these functions.
+  await assert.rejects(waitForPort(0), RangeError);
+  await assert.rejects(waitForPortClosed(70000), RangeError);
+  await assert.rejects(waitFor(() => 1, { intervalMs: Infinity }), RangeError);
 });
 
 test("waits for a port to open and to close", async () => {
@@ -81,4 +84,60 @@ test("getFreePort gives different usable ports", async () => {
   const server = createServer();
   await new Promise((r) => server.listen(a, "127.0.0.1", r));
   server.close();
+});
+
+test("a check that never finishes cannot stall the wait, and it is told to stop", async () => {
+  let signalSeen;
+  const started = Date.now();
+  await assert.rejects(
+    waitFor((_n, { signal }) => { signalSeen = signal; return new Promise(() => {}); }, { timeoutMs: 150, intervalMs: 10, description: "a hung thing" }),
+    (e) => e instanceof WaitTimeoutError && /last error: the check did not finish in time/.test(e.message)
+  );
+  assert.ok(Date.now() - started < 1500);
+  assert.equal(signalSeen.aborted, true);
+});
+
+test("a late failure of a check that was cut off does not crash the process", async () => {
+  const unhandled = [];
+  const listener = (reason) => unhandled.push(reason);
+  process.on("unhandledRejection", listener);
+  try {
+    await assert.rejects(waitFor((_n, { signal }) => new Promise((_, reject) => signal.addEventListener("abort", () => reject(new Error("aborted late")))), { timeoutMs: 60, intervalMs: 5 }), WaitTimeoutError);
+    await new Promise((r) => setTimeout(r, 30));
+  } finally {
+    process.off("unhandledRejection", listener);
+  }
+  assert.deepEqual(unhandled, []);
+});
+
+test("cancelling reaches a check that is busy", async () => {
+  const controller = new AbortController();
+  const reason = new Error("stop now");
+  setTimeout(() => controller.abort(reason), 30);
+  await assert.rejects(waitFor(() => new Promise(() => {}), { timeoutMs: 5000, signal: controller.signal }), (e) => e === reason);
+});
+
+test("waitForPortClosed refuses a port that cannot be listened on instead of reporting closed", async () => {
+  await assert.rejects(waitForPortClosed(0, { timeoutMs: 100 }), RangeError);
+});
+
+test("waitForHttp with a URL that can never work fails at once", async () => {
+  const started = Date.now();
+  await assert.rejects(waitForHttp("not a url", { timeoutMs: 5000 }), TypeError);
+  await assert.rejects(waitForHttp("ftp://example.com/x", { timeoutMs: 5000 }), TypeError);
+  assert.ok(Date.now() - started < 500);
+});
+
+test("waitForHttp ends the request of a server that never answers", async () => {
+  const server = createServer(() => {});
+  const port = await getFreePort();
+  await new Promise((r) => server.listen(port, "127.0.0.1", r));
+  try {
+    const started = Date.now();
+    await assert.rejects(waitForHttp(`http://127.0.0.1:${port}/`, { requestTimeoutMs: 50, timeoutMs: 300, intervalMs: 10 }), WaitTimeoutError);
+    assert.ok(Date.now() - started < 1500);
+  } finally {
+    server.closeAllConnections();
+    await new Promise((r) => server.close(r));
+  }
 });
