@@ -141,3 +141,16 @@ test("waitForHttp ends the request of a server that never answers", async () => 
     await new Promise((r) => server.close(r));
   }
 });
+
+test("timeoutMs: 0 still tries once, also for a check that needs some time", async () => {
+  const port = await getFreePort();
+  await assert.rejects(waitForPort(port, { timeoutMs: 0 }), (e) => e instanceof WaitTimeoutError && e.attempts === 1);
+  const server = createServer(() => {});
+  await new Promise((r) => server.listen(port, "127.0.0.1", r));
+  try {
+    assert.equal(await waitForPort(port, { timeoutMs: 0 }), true);
+    assert.equal(await waitFor(() => new Promise((r) => setTimeout(() => r("late"), 120)), { timeoutMs: 0 }), "late");
+  } finally {
+    server.close();
+  }
+});

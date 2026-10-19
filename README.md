@@ -25,7 +25,7 @@ const port = await getFreePort();                                  // for a test
 
 ## Details
 
-- `waitFor(check, options)` calls `check(attempt, { signal })` until it returns a **truthy** value (which is returned). A throw or rejection means "not yet". A check that is still busy when the time is up is cut off: the wait ends on time anyway, and `signal` is aborted so the check can stop (pass it to `fetch`, a socket, ...). A cancel through the `signal` option also reaches a check that is busy.
+- `waitFor(check, options)` calls `check(attempt, { signal })` until it returns a **truthy** value (which is returned). A throw or rejection means "not yet". A check that is still busy when the time is up is cut off: the wait ends on time anyway, and `signal` is aborted so the check can stop (pass it to `fetch`, a socket, ...). A cancel through the `signal` option also reaches a check that is busy. The first try always gets up to a second, even with a smaller `timeoutMs`, so `timeoutMs: 0` means "try once".
 - On a timeout (default 30 seconds) you get a `WaitTimeoutError`:
   `Gave up waiting for the database after 30000 ms (299 tries); last error: connection refused`, with `attempts` and `lastError` on the error. That message is worth gold in a CI log.
 - `waitForHttp` does not follow redirects (you test the URL you gave) and does not read the body. `expectStatus` is a number, a list or a function. Each request has its own `requestTimeoutMs` (default 2 s), so a server that accepts but never answers does not stall the loop.

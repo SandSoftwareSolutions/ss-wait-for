@@ -26,6 +26,7 @@ export class WaitTimeoutError extends Error {
 }
 
 const MAX_TIMER = 2 ** 31 - 1;
+const FIRST_TRY_MS = 1000; // the first try always gets this long, so `timeoutMs: 0` still means 'try once' for a port or a URL
 class CutOff extends Error {}
 
 // One try of the check. A check that never finishes is cut off when the deadline passes, its `signal` is aborted so it can stop
@@ -64,7 +65,8 @@ async function tryOnce(check, attempt, remainingMs, signal) {
  * Tries `check(attempt, { signal })` again and again until it returns a truthy value, which is then returned. A throw or a rejection
  * counts as "not yet", and so does a check that is still busy when the time is up (its `signal` is aborted then). Gives up after
  * `timeoutMs` (default 30000) with a WaitTimeoutError that names what you were waiting for (`description`), how often it tried,
- * and the last error. `intervalMs` (default 100) is the pause between tries; `signal` cancels.
+ * and the last error. `intervalMs` (default 100) is the pause between tries; `signal` cancels. The first try may take up to a second
+ * even when `timeoutMs` is smaller, so `timeoutMs: 0` means 'try once'.
  */
 export async function waitFor(check, { timeoutMs = 30_000, intervalMs = 100, description = "the condition", signal, now = Date.now } = {}) {
   if (typeof check !== "function") throw new TypeError("wait-for: check must be a function");
@@ -76,7 +78,7 @@ export async function waitFor(check, { timeoutMs = 30_000, intervalMs = 100, des
     signal?.throwIfAborted();
     attempts++;
     try {
-      const value = await tryOnce(check, attempts, deadline - now(), signal);
+      const value = await tryOnce(check, attempts, attempts === 1 ? Math.max(deadline - now(), FIRST_TRY_MS) : deadline - now(), signal);
       if (value) return value;
       lastError = undefined;
     } catch (error) {
