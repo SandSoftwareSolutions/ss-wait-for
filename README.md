@@ -10,6 +10,8 @@ Wait until something is ready: a database after `docker compose up`, a dev serve
 npm install @sandsoftwaresolutions/wait-for
 ```
 
+Works with `import` and `require()`, and ships TypeScript types for both.
+
 ## Usage
 
 ```js
